@@ -1,42 +1,47 @@
 import { Request, Response } from 'express';
-import SalesRecord from '../models/SalesRecord';
-import AgentLog from '../models/AgentLog'; // Import our MLOps logger
-import { AIService } from '../services/AIService'; // Import our AI brain
+import SalesRecord from '../models/SalesRecord'; // Removed { }
+import AgentLog from '../models/AgentLog';       // Removed { }
+import { AIService } from '../services/AIService';
 
-export const uploadSalesData = async (req: Request, res: Response) => {
+export const uploadData = async (req: Request, res: Response) => {
     try {
-        // 1. Save the raw business data to MongoDB
-        const newRecord = new SalesRecord(req.body);
-        const savedRecord = await newRecord.save();
+        const { region, revenue, customerFeedback } = req.body;
+        const startTime = Date.now();
 
-        // 2. Trigger AI Analysis if customer feedback is provided
-        let aiResult = null;
-        if (req.body.customerFeedback) {
-            console.log("🤖 AI is analyzing feedback...");
-            aiResult = await AIService.analyzeFeedback(req.body.customerFeedback);
-            
-            // 3. MLOps: Log the AI activity for your resume's tracking feature
-            if (aiResult) {
-                const log = new AgentLog({
-                    userQuery: req.body.customerFeedback,
-                    agentAction: "Sentiment & Summary Analysis",
-                    tokensUsed: aiResult.tokens,
-                    latencyMs: aiResult.latency
-                });
-                await log.save();
-                console.log(`✅ AI Logged: ${aiResult.latency}ms`);
-            }
-        }
+        // 1. Analyst Agent: Process Intelligence
+        const analysis = await AIService.analyzeFeedback(customerFeedback);
+        const latency = Date.now() - startTime;
 
-        // 4. Send the combined response back to the user
-        res.status(201).json({
-            message: "✅ Data saved and AI analysis complete!",
-            data: savedRecord,
-            aiAnalysis: aiResult ? aiResult.analysis : "No feedback provided for analysis."
+        // 2. Clerk Agent: Save to MongoDB
+        const newRecord = new SalesRecord({
+            region,
+            revenue,
+            customerFeedback,
+            aiAnalysis: analysis
         });
+        await newRecord.save();
 
+        // 3. Manager Agent: Log Performance
+        const log = new AgentLog({
+            agentName: 'Analyst-Gemini',
+            action: 'Sentiment Analysis',
+            latencyMs: latency,
+            status: 'Success'
+        });
+        await log.save();
+
+        res.status(201).json({ message: "Intelligence captured!", analysis, latency });
     } catch (error) {
-        console.error("Pipeline Error:", error);
-        res.status(500).json({ message: "❌ Error in data pipeline", error });
+        res.status(500).json({ error: "System failure in Intelligence Loop" });
+    }
+};
+
+// NEW: Fetch past intelligence
+export const getHistory = async (req: Request, res: Response) => {
+    try {
+        const history = await SalesRecord.find().sort({ createdAt: -1 }).limit(10);
+        res.status(200).json(history);
+    } catch (error) {
+        res.status(500).json({ error: "Failed to retrieve memory" });
     }
 };

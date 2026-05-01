@@ -1,9 +1,11 @@
 import express from 'express';
-import { uploadSalesData } from '../controllers/dataController';
+// Change 'uploadSalesData' to 'uploadData' here
+import { uploadData, getHistory } from '../controllers/dataController';
 
 const router = express.Router();
 
-// This defines the endpoint: POST http://localhost:5000/api/data/upload
-router.post('/upload', uploadSalesData);
+// Ensure the function names here match the imports above
+router.post('/upload', uploadData);
+router.get('/history', getHistory); 
 
 export default router;
